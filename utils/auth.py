@@ -11,15 +11,16 @@ DB_PORT = os.getenv("DB_PORT", "5432")
 
 
 def connect_db():
-    """Establishes a connection to the PostgreSQL database using environment variables."""
-    return psycopg2.connect(
-        host=DB_HOST,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        port=DB_PORT
+    """Load DB credentials from Streamlit secrets and return a connection."""
+    db_info = st.secrets["database"]
+    conn = psycopg2.connect(
+        host=db_info["host"],
+        database=db_info["database"],
+        user=db_info["user"],
+        password=db_info["password"],
+        port=db_info["port"]
     )
-
+    return conn
 
 def init_db():
     """Initializes the database by creating the users table if it doesn't exist."""
