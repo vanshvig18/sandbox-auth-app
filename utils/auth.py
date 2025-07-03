@@ -1,17 +1,9 @@
 import os
+import streamlit as st
 import psycopg2
 import bcrypt
 
-# Load DB credentials from Streamlit secrets or environment
-DB_HOST = os.getenv("DB_HOST", "")
-DB_NAME = os.getenv("DB_NAME", "")
-DB_USER = os.getenv("DB_USER", "")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_PORT = os.getenv("DB_PORT", "5432")
-
-
 def connect_db():
-    """Load DB credentials from Streamlit secrets and return a connection."""
     db_info = st.secrets["database"]
     conn = psycopg2.connect(
         host=db_info["host"],
@@ -23,7 +15,6 @@ def connect_db():
     return conn
 
 def init_db():
-    """Initializes the database by creating the users table if it doesn't exist."""
     conn = connect_db()
     cur = conn.cursor()
     cur.execute("""
@@ -37,38 +28,26 @@ def init_db():
     cur.close()
     conn.close()
 
-
-def create_user(username, password):
-    """
-    Adds a new user to the database with a hashed password.
-    Returns True if successful, False otherwise.
-    """
+def signup_user(username, password):
     conn = connect_db()
     cur = conn.cursor()
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    try:
-        cur.execute("INSERT INTO users (username, password) VALUES (%s, %s);", (username, hashed))
-        conn.commit()
-        return True
-    except Exception as e:
-        print("Error creating user:", e)
+    cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+    if cur.fetchone():
         return False
-    finally:
-        cur.close()
-        conn.close()
+    hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode()
+    cur.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username, hashed_pw))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return True
 
-
-def authenticate_user(username, password):
-    """
-    Authenticates a user by verifying their password.
-    Returns True if credentials are valid, False otherwise.
-    """
+def login_user(username, password):
     conn = connect_db()
     cur = conn.cursor()
-    cur.execute("SELECT password FROM users WHERE username = %s;", (username,))
+    cur.execute("SELECT password FROM users WHERE username=%s", (username,))
     result = cur.fetchone()
     cur.close()
     conn.close()
-    if result:
-        return bcrypt.checkpw(password.encode('utf-8'), result[0].encode('utf-8'))
+    if result and bcrypt.checkpw(password.encode('utf-8'), result[0].encode()):
+        return True
     return False
